@@ -24,3 +24,5 @@ solana-sdk-ids = "2.2.1"
 solana-rpc-client = "3.0.3"
 solana-address = "1.0.0"
 solana-account = "2.2.1"
+sha2 = "0.10"
+bytemuck = { version = "1.15", features = ["derive"] }

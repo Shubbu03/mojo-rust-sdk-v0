@@ -1,49 +1,75 @@
-use std::vec;
-
-use anyhow::{Ok, Result};
-use borsh::BorshDeserialize;
+use anyhow::{ensure, Result};
+use bytemuck::{bytes_of, from_bytes, Pod, Zeroable};
+use solana_pubkey::Pubkey;
 use solana_signer::Signer;
 
 use crate::{
-    account::WorldAccount,
     client::WorldClient,
     instructions::{create_world_ix, write_to_world_ix},
-    pda::find_world_pda
+    pda::{find_world_pda, world_seed_hash},
 };
+
+pub trait MojoState: Pod + Zeroable + Copy {}
+
+impl<T> MojoState for T where T: Pod + Zeroable + Copy {}
 
 pub struct World;
 
 impl World {
-    pub fn create(client: &WorldClient, payer: &impl Signer, name: &str) -> Result<()> {
-        let (world_pda, _) = find_world_pda(&payer.pubkey(), name);
-        let ix = create_world_ix(payer.pubkey(), world_pda, name.to_string());
-
-        client.send_ixs(payer, vec![ix])?;
-
-        Ok(())
-    }
-
-    pub fn write(
+    pub fn create<T: MojoState>(
         client: &WorldClient,
         payer: &impl Signer,
         name: &str,
-        data: Vec<u8>,
+        initial_state: &T,
+    ) -> Result<Pubkey> {
+        let (world_pda, _) = find_world_pda(&payer.pubkey(), name);
+        let seed_hash = world_seed_hash(&payer.pubkey(), name);
+        let ix = create_world_ix(
+            payer.pubkey(),
+            world_pda,
+            seed_hash,
+            bytes_of(initial_state),
+        );
+
+        client.send_ixs(payer, vec![ix])?;
+        Ok(world_pda)
+    }
+
+    pub fn write<T: MojoState>(
+        client: &WorldClient,
+        payer: &impl Signer,
+        name: &str,
+        new_state: &T,
     ) -> Result<()> {
         let (world_pda, _) = find_world_pda(&payer.pubkey(), name);
-
-        let ix = write_to_world_ix(payer.pubkey(), world_pda, data);
+        let seed_hash = world_seed_hash(&payer.pubkey(), name);
+        let ix = write_to_world_ix(
+            payer.pubkey(),
+            world_pda,
+            seed_hash,
+            bytes_of(new_state),
+        );
 
         client.send_ixs(payer, vec![ix])?;
         Ok(())
     }
 
-    pub fn read(client: &WorldClient, payer: &impl Signer, name: &str) -> Result<WorldAccount> {
-        let (world_pda, _) = find_world_pda(&payer.pubkey(), name);
-
+    pub fn read_state<T: MojoState>(
+        client: &WorldClient,
+        owner: &Pubkey,
+        name: &str,
+    ) -> Result<T> {
+        let (world_pda, _) = find_world_pda(owner, name);
         let data = client.rpc.get_account_data(&world_pda)?;
+        let required_len = core::mem::size_of::<T>();
+        ensure!(
+            data.len() >= required_len,
+            "account data length {} smaller than expected {}",
+            data.len(),
+            required_len
+        );
 
-        let world = WorldAccount::try_from_slice(&data)?;
-
-        Ok(world)
+        let state = *from_bytes::<T>(&data[..required_len]);
+        Ok(state)
     }
 }
