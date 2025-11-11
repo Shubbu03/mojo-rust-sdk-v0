@@ -5,7 +5,7 @@ use solana_signer::Signer;
 
 use crate::{
     client::WorldClient,
-    instructions::{create_world_ix, write_to_world_ix},
+    instructions::{create_world_ix, delegate_account_ix, write_to_world_ix},
     pda::{find_world_pda, world_seed_hash},
 };
 
@@ -38,26 +38,33 @@ impl World {
         Ok(world_pda)
     }
 
-    pub fn create<T: MojoState>(
+    pub fn create_state<T: MojoState>(
         client: &WorldClient,
         payer: &impl Signer,
         name: &str,
         initial_state: &T,
     ) -> Result<Pubkey> {
-        let (world_pda, _) = find_world_pda(&payer.pubkey(), name);
+        let (state_pda, _) = find_world_pda(&payer.pubkey(), name);
         let seed_hash = world_seed_hash(&payer.pubkey(), name);
         let ix = create_world_ix(
             payer.pubkey(),
-            world_pda,
+            state_pda,
+            seed_hash,
+            bytes_of(initial_state),
+        );
+
+        let delegate_ix = delegate_account_ix(
+            payer.pubkey(),
+            state_pda,
             seed_hash,
             bytes_of(initial_state),
         );
 
         client.send_ixs(payer, vec![ix])?;
-        Ok(world_pda)
+        Ok(state_pda)
     }
 
-    pub fn write<T: MojoState>(
+    pub fn write_state<T: MojoState>(
         client: &WorldClient,
         payer: &impl Signer,
         name: &str,
