@@ -133,6 +133,8 @@ pub fn write_to_world_ix(
         accounts: vec![
             AccountMeta::new(payer, true),
             AccountMeta::new(world, false),
+            AccountMeta::new_readonly(MAGIC_CONTEXT_ID, false),
+            AccountMeta::new_readonly(MAGIC_PROGRAM_ID, false),
         ],
         data,
     }
