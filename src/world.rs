@@ -1,6 +1,7 @@
 use anyhow::{ensure, Result};
 use bytemuck::{bytes_of, from_bytes, Pod, Zeroable};
 use solana_pubkey::Pubkey;
+use solana_sdk::signature::Signature;
 use solana_signer::Signer;
 
 use crate::{
@@ -70,13 +71,13 @@ impl World {
         payer: &impl Signer,
         name: &str,
         new_state: &T,
-    ) -> Result<()> {
+    ) -> Result<Signature> {
         let (world_pda, _) = find_world_pda(&payer.pubkey(), name);
         let seed_hash = world_seed_hash(&payer.pubkey(), name);
         let ix = write_to_world_ix(payer.pubkey(), world_pda, seed_hash, bytes_of(new_state));
 
-        client.send_ixs(payer, vec![ix])?;
-        Ok(())
+        let tx = client.send_ixs(payer, vec![ix])?;
+        Ok(tx)
     }
 
     pub fn read_state<T: MojoState>(client: &WorldClient, owner: &Pubkey, name: &str) -> Result<T> {

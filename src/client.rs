@@ -1,6 +1,7 @@
 use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
 use solana_instruction::Instruction;
+use solana_sdk::signature::Signature;
 use solana_signer::Signer;
 use solana_transaction::{self, Transaction};
 
@@ -15,7 +16,11 @@ impl WorldClient {
         }
     }
 
-    pub fn send_ixs(&self, payer: &impl Signer, instructions: Vec<Instruction>) -> Result<()> {
+    pub fn send_ixs(
+        &self,
+        payer: &impl Signer,
+        instructions: Vec<Instruction>,
+    ) -> Result<Signature> {
         let blockhash = self.rpc.get_latest_blockhash()?;
         let tx = Transaction::new_signed_with_payer(
             &instructions,
@@ -23,7 +28,7 @@ impl WorldClient {
             &[payer],
             blockhash,
         );
-        self.rpc.send_and_confirm_transaction(&tx)?;
-        Ok(())
+        let tx = self.rpc.send_and_confirm_transaction(&tx)?;
+        Ok(tx)
     }
 }
