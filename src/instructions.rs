@@ -11,6 +11,8 @@ use crate::{
 /// The delegation program ID.
 pub const DELEGATION_PROGRAM_ID: Pubkey = pubkey!("DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh");
 
+pub const EU_VALIDATOR: Pubkey = pubkey!("MEUGGrYPxKk17hCr7wpT6s8dtNokZj5U2L57vjYMS8e");
+
 /// The magic program ID.
 pub const MAGIC_PROGRAM_ID: Pubkey = pubkey!("Magic11111111111111111111111111111111111111");
 
@@ -107,7 +109,8 @@ pub fn delegate_account_ix(
             AccountMeta::new(delegation_record, false), // delegation record
             AccountMeta::new(delegation_metadata, false), // delegation metadata
             AccountMeta::new(SYSTEM_PROGRAM_ID, false), // system program
-            AccountMeta::new(DELEGATION_PROGRAM_ID, false), // system program
+            AccountMeta::new(DELEGATION_PROGRAM_ID, false), // Delegation Program ID
+            AccountMeta::new(EU_VALIDATOR, false),   // Europe Validator
         ],
         data: data,
     }

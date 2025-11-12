@@ -1,4 +1,4 @@
 use solana_pubkey::pubkey;
 
 pub const PROGRAM_ID: solana_pubkey::Pubkey =
-    pubkey!("58sfdJaiSM7Ccr6nHNXXmwbfT6e9s8Zkee6zdRSH8CeS");
+    pubkey!("7iMdvW8A4Tw3yxjbXjpx4b8LTW13EQLB4eTmPyqRvxzM");
