@@ -63,7 +63,7 @@ impl World {
         );
 
         WorldClient::new(&network).send_ixs(payer, vec![ix], RpcLayer::BaseLayer)?;
-        WorldClient::new(&network).send_ixs(payer, vec![delegate_ix], RpcLayer::Ephemeral)?;
+        WorldClient::new(&network).send_ixs(payer, vec![delegate_ix], RpcLayer::BaseLayer)?;
         Ok(state_pda)
     }
 
