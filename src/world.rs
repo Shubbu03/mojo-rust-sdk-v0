@@ -1,11 +1,12 @@
 use anyhow::{ensure, Result};
 use bytemuck::{bytes_of, from_bytes, Pod, Zeroable};
+use solana_client::rpc_client::RpcClient;
 use solana_pubkey::Pubkey;
 use solana_sdk::signature::Signature;
 use solana_signer::Signer;
 
 use crate::{
-    client::WorldClient,
+    client::{RpcLayer, RpcType, WorldClient, ER_LAYER_RPC_DEVNET, ER_LAYER_RPC_MAINNET},
     instructions::{create_world_ix, delegate_account_ix, write_to_world_ix},
     pda::{find_world_pda, world_seed_hash},
 };
@@ -22,7 +23,7 @@ pub struct World {
 }
 
 impl World {
-    pub fn create_world(client: &WorldClient, payer: &impl Signer, name: &str) -> Result<Pubkey> {
+    pub fn create_world(network: RpcType, payer: &impl Signer, name: &str) -> Result<Pubkey> {
         let (world_pda, _) = find_world_pda(&payer.pubkey(), name);
         let seed_hash = world_seed_hash(&payer.pubkey(), name);
         let ix = create_world_ix(
@@ -35,12 +36,12 @@ impl World {
             }),
         );
 
-        client.send_ixs(payer, vec![ix])?;
+        WorldClient::new(&network).send_ixs(payer, vec![ix], RpcLayer::BaseLayer)?;
         Ok(world_pda)
     }
 
     pub fn create_state<T: MojoState>(
-        client: &WorldClient,
+        network: RpcType,
         payer: &impl Signer,
         name: &str,
         initial_state: &T,
@@ -61,13 +62,13 @@ impl World {
             bytes_of(initial_state),
         );
 
-        client.send_ixs(payer, vec![ix])?;
-        client.send_ixs(payer, vec![delegate_ix])?;
+        WorldClient::new(&network).send_ixs(payer, vec![ix], RpcLayer::BaseLayer)?;
+        WorldClient::new(&network).send_ixs(payer, vec![delegate_ix], RpcLayer::Ephemeral)?;
         Ok(state_pda)
     }
 
     pub fn write_state<T: MojoState>(
-        client: &WorldClient,
+        network: RpcType,
         payer: &impl Signer,
         name: &str,
         new_state: &T,
@@ -76,13 +77,19 @@ impl World {
         let seed_hash = world_seed_hash(&payer.pubkey(), name);
         let ix = write_to_world_ix(payer.pubkey(), world_pda, seed_hash, bytes_of(new_state));
 
-        let tx = client.send_ixs(payer, vec![ix])?;
+        let tx = WorldClient::new(&network).send_ixs(payer, vec![ix], RpcLayer::Ephemeral)?;
         Ok(tx)
     }
 
-    pub fn read_state<T: MojoState>(client: &WorldClient, owner: &Pubkey, name: &str) -> Result<T> {
+    pub fn read_state<T: MojoState>(network: RpcType, owner: &Pubkey, name: &str) -> Result<T> {
         let (world_pda, _) = find_world_pda(owner, name);
-        let data = client.rpc.get_account_data(&world_pda)?;
+
+        let rpc = match network {
+            RpcType::Devnet => RpcClient::new(ER_LAYER_RPC_DEVNET),
+
+            RpcType::Mainnet => RpcClient::new(ER_LAYER_RPC_MAINNET),
+        };
+        let data = rpc.get_account_data(&world_pda)?;
         let required_len = core::mem::size_of::<T>();
         ensure!(
             data.len() >= required_len,
